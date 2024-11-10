@@ -5,6 +5,7 @@ use sharedtypes::DbJobType;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::str::FromStr;
+use std::time::Duration;
 
 #[path = "../Rust-Hydrus/src/scr/sharedtypes.rs"]
 mod sharedtypes;
@@ -43,6 +44,13 @@ pub enum JobType {
     LoadTable {
         tabletoload: sharedtypes::LoadDBTable,
     },
+    FileAdd {
+        source_url: String,
+        #[clap(num_args = 1, short = 't')]
+        tag_name: Vec<String>,
+        #[clap(num_args = 1, short = 'n')]
+        namespace_name: Vec<String>,
+    },
 }
 
 #[derive(Parser, Debug)]
@@ -55,6 +63,36 @@ struct Args {
 fn main() {
     let jobtype = Args::parse().jobtype;
     match jobtype {
+        JobType::FileAdd {
+            source_url,
+            tag_name,
+            namespace_name,
+        } => {
+            if tag_name.len() != namespace_name.len() {
+                println!("Cannot add file add because tag names != namespace names");
+                return;
+            }
+            let mut skip = Vec::new();
+            for i in 0..tag_name.len() {
+                skip.push(sharedtypes::SkipIf::FileTagRelationship(sharedtypes::Tag {
+                    tag: tag_name.get(i).unwrap().to_string(),
+                    namespace: sharedtypes::GenericNamespaceObj {
+                        name: namespace_name.get(i).unwrap().to_string(),
+                        description: None,
+                    },
+                }));
+            }
+
+            let file = sharedtypes::FileObject {
+                hash: sharedtypes::HashesSupported::None,
+                source_url: Some(source_url),
+                tag_list: Vec::new(),
+                skip_if: skip,
+            };
+            let ratelimit = (1, Duration::from_secs(1));
+            client::load_table(sharedtypes::LoadDBTable::All);
+            client::add_file(file, ratelimit);
+        }
         JobType::LoadTable { tabletoload } => {
             client::load_table(tabletoload);
         }
@@ -100,6 +138,8 @@ fn main() {
             namespace_name,
             namespace_description,
         } => {
+            client::load_table(sharedtypes::LoadDBTable::Tags);
+            client::load_table(sharedtypes::LoadDBTable::Namespace);
             let nid = client::namespace_put(namespace_name, namespace_description, true);
             client::tag_add(tag, nid, true, None);
         }
@@ -117,6 +157,9 @@ fn main() {
             limit_namespace_name,
             limit_namespace_description,
         } => {
+            client::load_table(sharedtypes::LoadDBTable::Tags);
+            client::load_table(sharedtypes::LoadDBTable::Namespace);
+            client::load_table(sharedtypes::LoadDBTable::Parents);
             let nid = client::namespace_put(namespace_name, namespace_description, true);
 
             let rel_nid =
