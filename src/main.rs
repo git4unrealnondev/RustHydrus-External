@@ -1,7 +1,10 @@
 use clap::Parser;
 use clap::Subcommand;
+use clap::ValueEnum;
 use sharedtypes::DbJobType;
 use std::collections::BTreeMap;
+use std::error::Error;
+use std::str::FromStr;
 
 #[path = "../Rust-Hydrus/src/scr/sharedtypes.rs"]
 mod sharedtypes;
@@ -37,6 +40,9 @@ pub enum JobType {
         limit_namespace_name: Option<String>,
         limit_namespace_description: Option<String>,
     },
+    LoadTable {
+        tabletoload: sharedtypes::LoadDBTable,
+    },
 }
 
 #[derive(Parser, Debug)]
@@ -49,6 +55,9 @@ struct Args {
 fn main() {
     let jobtype = Args::parse().jobtype;
     match jobtype {
+        JobType::LoadTable { tabletoload } => {
+            client::load_table(tabletoload);
+        }
         JobType::JobsAdd {
             site,
             param,
