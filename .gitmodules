@@ -1,0 +1,3 @@
+[submodule "Rust-Hydrus"]
+	path = Rust-Hydrus
+	url = git@github.com:git4unrealnondev/Rust-Hydrus.git
