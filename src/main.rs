@@ -137,7 +137,7 @@ fn main() {
             };
             let ratelimit = (1, Duration::from_secs(1));
             client::load_table(sharedtypes::LoadDBTable::All);
-            client::add_file(file, ratelimit);
+            client::add_file_nonblocking(file, ratelimit);
         }
 
         JobType::FileAdd {
