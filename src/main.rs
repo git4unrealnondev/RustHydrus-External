@@ -61,6 +61,22 @@ pub enum JobType {
         #[clap(num_args = 1, short = 'n')]
         namespace_name: Vec<String>,
     },
+    FileAddNoBlock {
+        /// Source url to download from
+        source_url: String,
+        /// Optional - Skips if this tag exists and has a relationship to file
+        #[clap(num_args = 1, short = 's')]
+        skip_tag_name: Vec<String>,
+        /// Optional - Skips if this tag namespace exists and has a relationship to file
+        #[clap(num_args = 1, short = 'o')]
+        skip_namespace_name: Vec<String>,
+        /// Optional - Associates a tag to the file downloaded
+        #[clap(num_args = 1, short = 't')]
+        tag_name: Vec<String>,
+        /// Optional - Associates a tag & namespace to the file downloaded
+        #[clap(num_args = 1, short = 'n')]
+        namespace_name: Vec<String>,
+    },
 }
 
 #[derive(Parser, Debug)]
@@ -73,6 +89,57 @@ struct Args {
 fn main() {
     let jobtype = Args::parse().jobtype;
     match jobtype {
+        JobType::FileAddNoBlock {
+            source_url,
+            skip_tag_name,
+            skip_namespace_name,
+            tag_name,
+            namespace_name,
+        } => {
+            if skip_tag_name.len() != skip_namespace_name.len() {
+                println!("Cannot add file add because skip tag names != skip namespace names");
+                return;
+            }
+            if tag_name.len() != namespace_name.len() {
+                println!("Cannot add file add because tag names != namespace names");
+                return;
+            }
+
+            let mut skip = Vec::new();
+            for i in 0..skip_tag_name.len() {
+                skip.push(sharedtypes::SkipIf::FileTagRelationship(sharedtypes::Tag {
+                    tag: skip_tag_name.get(i).unwrap().to_string(),
+                    namespace: sharedtypes::GenericNamespaceObj {
+                        name: skip_namespace_name.get(i).unwrap().to_string(),
+                        description: None,
+                    },
+                }));
+            }
+
+            let mut tags = Vec::new();
+            for i in 0..tag_name.len() {
+                tags.push(sharedtypes::TagObject {
+                    tag: tag_name.get(i).unwrap().to_string(),
+                    namespace: sharedtypes::GenericNamespaceObj {
+                        name: namespace_name.get(i).unwrap().to_string(),
+                        description: None,
+                    },
+                    tag_type: sharedtypes::TagType::Normal,
+                    relates_to: None,
+                });
+            }
+
+            let file = sharedtypes::FileObject {
+                hash: sharedtypes::HashesSupported::None,
+                source_url: Some(source_url),
+                tag_list: tags,
+                skip_if: skip,
+            };
+            let ratelimit = (1, Duration::from_secs(1));
+            client::load_table(sharedtypes::LoadDBTable::All);
+            client::add_file(file, ratelimit);
+        }
+
         JobType::FileAdd {
             source_url,
             skip_tag_name,
